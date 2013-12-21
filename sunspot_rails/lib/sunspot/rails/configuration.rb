@@ -90,7 +90,7 @@ module Sunspot #:nodoc:
 
       #
       # The url path to the Solr servlet (useful if you are running multicore).
-      # Default '/solr'.
+      # Default '/solr/default'.
       #
       # ==== Returns
       #
@@ -376,7 +376,7 @@ module Sunspot #:nodoc:
       end
       
       def default_path
-        '/solr'
+        '/solr/default'
       end
       
     end

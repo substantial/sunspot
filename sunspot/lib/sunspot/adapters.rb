@@ -1,3 +1,5 @@
+require 'forwardable'
+
 module Sunspot
   #
   # Sunspot works by saving references to the primary key (or natural ID) of
@@ -46,7 +48,7 @@ module Sunspot
     #   end
     #
     #   # then in your initializer
-    #   Sunspot::Adapters::InstanceAdapter.register(MyAdapter, File)
+    #   Sunspot::Adapters::InstanceAdapter.register(FileAdapter, File)
     #
     class InstanceAdapter
       def initialize(instance) #:nodoc:

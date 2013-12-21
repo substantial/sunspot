@@ -1,5 +1,6 @@
 # Sunspot
 
+[![Gem Version](https://badge.fury.io/rb/sunspot.png)](http://badge.fury.io/rb/sunspot)
 [![Build Status](https://secure.travis-ci.org/sunspot/sunspot.png)](http://travis-ci.org/sunspot/sunspot)
 
 Sunspot is a Ruby library for expressive, powerful interaction with the Solr
@@ -15,7 +16,11 @@ This README provides a high level overview; class-by-class and
 method-by-method documentation is available in the [API
 reference](http://sunspot.github.com/sunspot/docs/).
 
-## Quickstart with Rails 3
+For questions about how to use Sunspot in your app, please use the
+[Sunspot Mailing List](http://groups.google.com/group/ruby-sunspot) or search
+[Stack Overflow](http://www.stackoverflow.com).
+
+## Quickstart with Rails 3 / 4
 
 Add to Gemfile:
 
@@ -130,7 +135,7 @@ end
 
 Solr allows searching for phrases: search terms that are close together.
 
-In the default query parser used by Sunspot (dismax), phrase searches
+In the default query parser used by Sunspot (edismax), phrase searches
 are represented as a double quoted group of words.
 
 ```ruby
@@ -395,10 +400,10 @@ search = Post.search do
 end
 
 # e.g.,
-# Number of posts with rating withing 1.0..2.0: 2
-# Number of posts with rating withing 2.0..3.0: 1
+# Number of posts with rating within 1.0..2.0: 2
+# Number of posts with rating within 2.0..3.0: 1
 search.facet(:average_rating).rows.each do |facet|
-  puts "Number of posts with rating withing #{facet.value}: #{facet.count}"
+  puts "Number of posts with rating within #{facet.value}: #{facet.count}"
 end
 ```
 
@@ -435,6 +440,40 @@ end
 Post.search do
   fulltext("pizza")
   order_by(:random)
+end
+```
+
+**Solr 3.1 and above**
+
+Solr supports sorting on multiple fields using custom functions. Supported
+operators and more details are available on the [Solr Wiki](http://wiki.apache.org/solr/FunctionQuery)
+
+To sort results by a custom function use the `order_by_function` method.
+Functions are defined with prefix notation:
+
+```ruby
+# Order by sum of two example fields: rating1 + rating2
+Post.search do
+  fulltext("pizza")
+  order_by_function(:sum, :rating1, :rating2, :desc)
+end
+
+# Order by nested functions: rating1 + (rating2*rating3)
+Post.search do
+  fulltext("pizza")
+  order_by_function(:sum, :rating1, [:product, :rating2, :rating3], :desc)
+end
+
+# Order by fields and constants: rating1 + (rating2 * 5)
+Post.search do
+  fulltext("pizza")
+  order_by_function(:sum, :rating1, [:product, :rating2, '5'], :desc)
+end
+
+# Order by average of three fields: (rating1 + rating2 + rating3) / 3
+Post.search do
+  fulltext("pizza")
+  order_by_function(:div, [:sum, :rating1, :rating2, :rating3], '3', :desc)
 end
 ```
 
@@ -579,7 +618,7 @@ class Post < ActiveRecord::Base
 end
 ```
 
-Highlighting matches on the `body` field, for instance, can be acheived
+Highlighting matches on the `body` field, for instance, can be achieved
 like:
 
 ```ruby
@@ -600,6 +639,60 @@ search.hits.each do |hit|
 
   hit.highlights(:body).each do |highlight|
     puts "  " + highlight.format { |word| "*#{word}*" }
+  end
+end
+```
+
+### Stats
+
+Solr can return some statistics on indexed numeric fields. Fetching statistics
+for `average_rating`:
+
+```ruby
+search = Post.search do
+  stats :average_rating
+end
+
+puts "Minimum average rating: #{search.stats(:average_rating).min}"
+puts "Maximum average rating: #{search.stats(:average_rating).max}"
+```
+
+#### Stats on multiple fields
+
+```ruby
+search = Post.search do
+  stats :average_rating, :blog_id
+end
+```
+
+#### Faceting on stats
+
+It's possible to facet field stats on another field:
+
+```ruby
+search = Post.search do
+  stats :average_rating do
+    facet :featured
+  end
+end
+
+search.stats(:average_rating).facet(:featured).rows do |row|
+  puts "Minimum average rating for featured=#{row.value}: #{row.min}"
+end
+```
+
+Take care when requesting facets on a stats field, since all facet results are
+returned by Solr!
+
+#### Multiple stats and selective faceting
+
+```ruby
+search = Post.search do
+  stats :average_rating do
+    facet :featured
+  end
+  stats :blog_id do
+    facet :average_rating
   end
 end
 ```
@@ -749,6 +842,16 @@ bundle exec rake sunspot:solr:reindex[500,Post] # some shells will require escap
 
 TODO
 
+## Threading
+
+The default Sunspot Session is not thread-safe. If used in a multi-threaded
+environment (such as sidekiq), you should configure Sunspot to use the
+[ThreadLocalSessionProxy](http://sunspot.github.io/sunspot/docs/Sunspot/SessionProxy/ThreadLocalSessionProxy.html):
+
+```ruby
+Sunspot.session = Sunspot::SessionProxy::ThreadLocalSessionProxy.new
+```
+
 ## Manually Adjusting Solr Parameters
 
 To add or modify parameters sent to Solr, use `adjust_solr_params`:
@@ -867,25 +970,24 @@ $ yardoc -o docs */lib/**/*.rb - README.md
 * [Sunspot: A Solr-Powered Search Engine for Ruby](http://www.linux-mag.com/id/7341) (Linux Magazine)
 * [Sunspot Showed Me the Light](http://bennyfreshness.com/2010/05/sunspot-helped-me-see-the-light/) (ben koonse)
 * [RubyGems.org — A case study in upgrading to full-text search](http://blog.websolr.com/post/3505903537/rubygems-search-upgrade-1) (Websolr)
-* [How to Implement Spatial Search with Sunspot and Solr](http://codequest.eu/articles/how-to-implement-spatial-search-with-sunspot-and-solr) (Code Quest)
+* [How to Implement Spatial Search with Sunspot and Solr](http://web.archive.org/web/20120708071427/http://codequest.eu/articles/how-to-implement-spatial-search-with-sunspot-and-solr) (Code Quest)
 * [Sunspot 1.2 with Spatial Solr Plugin 2.0](http://joelmats.wordpress.com/2011/02/23/getting-sunspot-1-2-with-spatial-solr-plugin-2-0-to-work/) (joelmats)
-* [rails3 + heroku + sunspot : madness](http://anhaminha.tumblr.com/post/632682537/rails3-heroku-sunspot-madness) (anhaminha)
+* [rails3 + heroku + sunspot : madness](http://web.archive.org/web/20100727041141/http://anhaminha.tumblr.com/post/632682537/rails3-heroku-sunspot-madness) (anhaminha)
+* [heroku + websolr + sunspot](https://devcenter.heroku.com/articles/websolr) (Onemorecloud)
 * [How to get full text search working with Sunspot](http://cookbook.hobocentral.net/recipes/57-how-to-get-full-text-search) (Hobo Cookbook)
-* [Full text search with Sunspot in Rails](http://hemju.com/2011/01/04/full-text-search-with-sunspot-in-rail/) (hemju)
+* [Full text search with Sunspot in Rails](http://web.archive.org/web/20120311015358/http://hemju.com/2011/01/04/full-text-search-with-sunspot-in-rails/) (hemju)
 * [Using Sunspot for Free-Text Search with Redis](http://masonoise.wordpress.com/2010/02/06/using-sunspot-for-free-text-search-with-redis/) (While I Pondered...)
 * [Fuzzy searching in SOLR with Sunspot](http://www.pipetodevnull.com/past/2010/8/5/fuzzy_searching_in_solr_with_sunspot/) (pipe :to => /dev/null)
 * [Default scope with Sunspot](http://www.cloudspace.com/blog/2010/01/15/default-scope-with-sunspot/) (Cloudspace)
 * [Index External Models with Sunspot/Solr](http://www.medihack.org/2011/03/19/index-external-models-with-sunspotsolr/) (Medihack)
-* [Chef recipe for Sunspot in production](http://gist.github.com/336403)
 * [Testing with Sunspot and Cucumber](http://collectiveidea.com/blog/archives/2011/05/25/testing-with-sunspot-and-cucumber/) (Collective Idea)
 * [Cucumber and Sunspot](http://opensoul.org/2010/4/7/cucumber-and-sunspot) (opensoul.org)
 * [Testing Sunspot with Cucumber](http://blog.trydionel.com/2010/02/06/testing-sunspot-with-cucumber/) (spiral_code)
 * [Running cucumber features with sunspot_rails](http://blog.kabisa.nl/2010/02/03/running-cucumber-features-with-sunspot_rails) (Kabisa Blog)
 * [Testing Sunspot with Test::Unit](http://timcowlishaw.co.uk/post/3179661158/testing-sunspot-with-test-unit) (Type Slowly)
-* [How To Use Twitter Lists to Determine Influence](http://www.untitledstartup.com/2010/01/how-to-use-twitter-lists-to-determine-influence/) (Untitled Startup)
-* [Sunspot Quickstart](http://wiki.websolr.com/index.php/Sunspot_Quickstart) (WebSolr)
+* [Sunspot Quickstart](http://wiki.websolr.com/guides/Sunspot-Quick-Start) (WebSolr)
 * [Solr, and Sunspot](http://www.kuahyeow.com/2009/08/solr-and-sunspot.html) (YT!)
-* [The Saga of the Switch](http://mrb.github.com/2010/04/08/the-saga-of-the-switch.html) (mrb -- includes comparison of Sunspot and Ultrasphinx)
+* [The Saga of the Switch](http://web.archive.org/web/20100427135335/http://mrb.github.com/2010/04/08/the-saga-of-the-switch.html) (mrb -- includes comparison of Sunspot and Ultrasphinx)
 * [Conditional Indexing with Sunspot](http://mikepackdev.com/blog_posts/19-conditional-indexing-with-sunspot) (mikepack)
 
 ## License
