@@ -91,13 +91,15 @@ module Sunspot #:nodoc:
 
             unless options[:auto_index] == false
               before_save :mark_for_auto_indexing_or_removal
-              after_save :perform_index_tasks
+              send(Sunspot::Rails.configuration.auto_index_callback,
+                   :perform_index_tasks)
             end
 
             unless options[:auto_remove] == false
-              after_destroy do |searchable|
-                searchable.remove_from_index
-              end
+              send(Sunspot::Rails.configuration.auto_remove_callback,
+                   proc { |searchable| searchable.remove_from_index },
+                   :on => :destroy
+                  )
             end
             options[:include] = Util::Array(options[:include])
 

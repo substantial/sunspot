@@ -364,7 +364,7 @@ describe 'ActiveRecord mixin' do
     end
   end
 
-  describe "more_like_this()" do
+  describe "more_like_this()", :truncate => true do
     before(:each) do
       @posts = [
         Post.create!(:title => 'Post123', :body => "one two three"),
@@ -405,7 +405,7 @@ describe 'ActiveRecord mixin' do
     end
   end
 
-  describe ':if constraint' do
+  describe ':if constraint', :truncate => true do
     subject do
       PostWithAuto.new(:title => 'Post123')
     end
@@ -514,7 +514,7 @@ describe 'ActiveRecord mixin' do
     end
   end
 
-  describe ':unless constraint' do
+  describe ':unless constraint', :truncate => true do
     subject do
       PostWithAuto.new(:title => 'Post123')
     end
