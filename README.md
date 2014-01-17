@@ -602,6 +602,35 @@ Post.search do
 end
 ```
 
+### Joins
+
+**Solr 4 and above**
+
+Solr joins allow you to filter objects by joining on additional documents.  More information can be found on the [Solr Wiki](http://wiki.apache.org/solr/Join).
+
+```ruby
+class Photo < ActiveRecord::Base
+  searchable do
+    text :caption, :default_boost => 1.5
+    time :created_at
+    integer :photo_container_id
+  end
+end
+
+class PhotoContainer < ActiveRecord::Base
+  searchable do
+    text :name
+    join(:caption, :type => :string, :join_string => 'from=photo_container_id to=id')
+    join(:photos_created, :type => :time, :join_string => 'from=photo_container_id to=id', :as => 'created_at_d')
+  end
+end
+
+PhotoContainer.search do
+  with(:caption, 'blah')
+  with(:photos_created).between(Date.new(2011,3,1), Date.new(2011,4,1))
+end
+```
+
 ### Highlighting
 
 Highlighting allows you to display snippets of the part of the document
@@ -836,6 +865,9 @@ bundle exec rake sunspot:solr:reindex
 
 # or, to be specific to a certain model with a certain batch size:
 bundle exec rake sunspot:solr:reindex[500,Post] # some shells will require escaping [ with \[ and ] with \]
+
+# to skip the prompt asking you if you want to proceed with the reindexing:
+bundle exec rake sunspot:solr:reindex[,,true] # some shells will require escaping [ with \[ and ] with \]
 ```
 
 ## Use Without Rails
@@ -871,6 +903,29 @@ TODO
 ## Type Reference
 
 TODO
+
+## Configuration
+
+Configure Sunspot by creating a *config/sunspot.yml* file or by setting a `SOLR_URL` or a `WEBSOLR_URL` environment variable.
+The defaults are as follows.
+
+```yaml
+development:
+  solr:
+    hostname: localhost
+    port: 8982
+    log_level: INFO
+
+test:
+  solr:
+    hostname: localhost
+    port: 8981
+    log_level: WARNING
+```
+
+You may want to use SSL for production environments with a username and password. For example, set `SOLR_URL` to `https://username:password@production.solr.example.com/solr`.
+
+You can examine the value of `Sunspot::Rails::Configuration.solr_url` at runtime.
 
 ## Development
 
